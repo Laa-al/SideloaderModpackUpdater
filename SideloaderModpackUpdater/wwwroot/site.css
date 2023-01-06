@@ -1,0 +1,13 @@
+﻿.node{
+    display: inline;
+    user-select: none;
+}
+
+.my-hover:hover{
+    box-shadow: 0 0 3px 3px black;
+}
+
+
+.item{
+    margin: 5px;
+}

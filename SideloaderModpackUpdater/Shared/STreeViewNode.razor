@@ -1,0 +1,20 @@
+﻿@typeparam TItem
+
+@foreach (var item in Items)
+{
+    <div class="item" style="padding-left:8px" >
+        <input class="node" type="checkbox" checked="@(STreeView.Selected(item))" 
+                       onchange="@(() => STreeView.SelectAction(item))"/>
+        <div class="node" onclick="@(()=>Expended(item))">
+            @STreeView.Content(item)
+        </div>
+            
+        @if (STreeView.Expended(item))
+        {
+            <STreeViewNode Items="@STreeView.Children(item)" STreeView="@STreeView" />
+        }
+    </div>
+}
+
+
+      
