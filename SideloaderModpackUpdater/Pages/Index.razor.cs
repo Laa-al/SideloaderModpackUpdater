@@ -12,15 +12,16 @@ namespace SideloaderModpackUpdater.Pages
 {
     public partial class Index
     {
-        private string _originUrl;
+        private NamePath _input = new("","");
 
-        private string _localPath;
+        private PathNode _rootNode = new PathNode();
 
-        private PathNode _rootNode = new()
-        {
-            Children = new()
-        };
+        private bool _updateButtonDisabled;
 
+        private bool _downloadButtonDisabled;
+        
+        private bool DownloadButtonDisabled => !DownloadManager.Unoccupied || _downloadButtonDisabled;
+       
         protected override async Task OnInitializedAsync()
         {
             if (File.Exists("config.json"))
@@ -31,42 +32,25 @@ namespace SideloaderModpackUpdater.Pages
 
                 _rootNode = JsonConvert.DeserializeObject<PathNode>(await sr.ReadToEndAsync());
 
-                _originUrl = _rootNode.Path;
-                _localPath = _rootNode.Name;
+                _input = new(_rootNode.Name, _rootNode.Path);
             }
         }
 
-        private bool _updateButtonDisabled;
-
-        private bool _downloadButtonDisabled;
-        
-        private bool DownloadButtonDisabled => !DownloadManager.Unoccupied || _downloadButtonDisabled;
-
-        private void UpdatePathOnly()
+        private static void OperateNodeAndItChildren<TParameter>(
+            PathNode node,
+            TParameter parameter,
+            Func<PathNode,TParameter,TParameter> operation)
         {
-            _rootNode.Name = _localPath;
-        }
+            var next = operation(node,parameter);
+            
+            if (next is null || node.Children is null)
+                return;
 
-        private void CheckUpdateOnly()
-        {
-            UpdatePathOnly();
-            CheckUpdateOnly(_rootNode, "");
-        }
-
-        private void CheckUpdateOnly(PathNode node, string parentPath)
-        {
-            string newPath = Path.Combine(parentPath, node.Name);
-
-            if (node.IsFile)
-            {
-                CheckNodeUpdate(node, newPath);
-            }
-            else if (node.Children is not null)
-                foreach (var chi in node.Children)
-                    CheckUpdateOnly(chi, newPath);
+            foreach (var child in node.Children)
+                OperateNodeAndItChildren(child,next,operation);
         }
         
-        private void CheckNodeUpdate(PathNode node, string path)
+        private static void CheckUpdateForOneNode(PathNode node, string path)
         {
             if (File.Exists(path))
             {
@@ -81,35 +65,41 @@ namespace SideloaderModpackUpdater.Pages
             node.ShouldUpdate = true;
             Console.WriteLine($"{node.Name} need update");
         }
-
-
-        private void ExpendAll()
+        
+        private void ApplyInput()
         {
-            ExpendAll(_rootNode, !_rootNode.Expended);
+            _rootNode.Name = _input.Name;
+            _rootNode.Path = _input.Path;
+        }
+        
+        private void ExpendAllNode()
+        {
+            OperateNodeAndItChildren(_rootNode, !_rootNode.Expended, ExpendAllNodeOperation);
+            
+            StateHasChanged();
         }
 
-        private void ExpendAll(PathNode node, bool value)
+        private static bool ExpendAllNodeOperation(PathNode node, bool value)
         {
             node.Expended = value;
-
-            if (node.Children is not null)
-                foreach (var chi in node.Children)
-                    ExpendAll(chi, value);
+            
+            return value;
         }
 
-        private void SelectedNeedUpdate()
+        private void SelectedWitchNeedUpdate()
         {
-            SelectedNeedUpdate(_rootNode, !_rootNode.ShouldUpdate);
+            OperateNodeAndItChildren(_rootNode, !_rootNode.ShouldUpdate, SelectedWitchNeedUpdateOperation);
+            
             _rootNode.ShouldUpdate = !_rootNode.ShouldUpdate;
+            
+            StateHasChanged();
         }
 
-        private void SelectedNeedUpdate(PathNode node, bool value)
+        private static bool SelectedWitchNeedUpdateOperation(PathNode node, bool value)
         {
             node.RealUpdate = value && node.ShouldUpdate;
 
-            if (node.Children is not null)
-                foreach (var chi in node.Children)
-                    SelectedNeedUpdate(chi, value);
+            return value;
         }
 
         private async Task SaveConfigAsync()
@@ -121,171 +111,197 @@ namespace SideloaderModpackUpdater.Pages
             await sw.WriteAsync(JsonConvert.SerializeObject(_rootNode));
         }
 
-        private void SelectAction(PathNode node)
+        private void Select(PathNode node)
         {
-            SelectChildren(node, !node.RealUpdate);
+            OperateNodeAndItChildren(node, !node.RealUpdate, SelectChildren);
+            
+            StateHasChanged();
         }
 
-        static void SelectChildren(PathNode node, bool value)
+        private static bool SelectChildren(PathNode node, bool value)
         {
             node.RealUpdate = value;
-            if (node.Children is null)
-                return;
-            foreach (var child in node.Children)
-                SelectChildren(child, value);
+            
+            return value;
         }
 
+      
+        private void CheckUpdateByConfig()
+        {
+            ApplyInput();
 
-        private async Task StartDownloadAsync()
+            OperateNodeAndItChildren(_rootNode, "", CheckUpdateOperation);
+            
+            StateHasChanged();
+        }
+
+        private static string CheckUpdateOperation(PathNode node, string path)
+        {
+            path = Path.Combine(path, node.Name);
+
+            if (!node.IsFile) return path;
+
+            CheckUpdateForOneNode(node, path);
+            
+            return null;
+        }
+        
+
+        private void Download()
         {
             if (DownloadButtonDisabled)
                 return;
+            
             _downloadButtonDisabled = true;
-            await DownloadAsync(_rootNode.Children, _rootNode.Path, _rootNode.Name);
-            _downloadButtonDisabled = false;
+
+            OperateNodeAndItChildren(_rootNode,new NamePath("",""),DownloadOperation);
+
+            StateHasChanged();
         }
 
-
-        private async Task DownloadAsync(List<PathNode> nodes, string url, string localPath)
+        private static NamePath DownloadOperation(PathNode node, NamePath namePath)
         {
-            if (localPath is null)
-                return;
-            // if (!Directory.Exists(localPath))
-            //     Directory.CreateDirectory(localPath);
+            if (namePath.Name is null)
+                return null;
 
-            foreach (var node in nodes)
-            {
-                var newUrl = Path.Combine(url, node.Path);
+            if (!node.IsFile)
+                return new(
+                    Path.Combine(namePath.Name, node.Name),
+                    Path.Combine(namePath.Path, node.Path));
 
-                if (node.IsFile && node.RealUpdate)
-                {
-                    DownloadManager.AutoAddTask(new()
+            if (node.RealUpdate)
+                DownloadManager.AutoAddTask(
+                    new()
                     {
                         Name = node.Name,
-                        Path = localPath,
-                        Url = newUrl
+                        Path = namePath.Name,
+                        Url = Path.Combine(namePath.Path, node.Path)
                     });
-                }
-                else if (!node.IsFile)
-                {
-                    await DownloadAsync(node.Children, newUrl, Path.Combine(localPath, node.Name));
-                }
-            }
+
+            return null;
         }
 
-        private async Task StartUpdateSourceAsync()
+        private async Task UpdateSourceAsync()
         {
             _updateButtonDisabled = true;
             
-            _rootNode.Path = _originUrl;
-            _rootNode.Name = _localPath;
+            await SaveConfigAsync();
 
             Console.WriteLine("Mod below should be update!");
 
-            _rootNode.Children = await UpdateSourceAsync(_originUrl, _localPath);
+            _rootNode = new PathNode
+            {
+                Path = _input.Path,
+                Name = _input.Name
+            };
+            
+            OperateNodeAndItChildren(_rootNode,new NamePath("",""),UpdateSourceOperation);
 
             await SaveConfigAsync();
-
             
+            Console.WriteLine("Successfully check update!");
+
             _updateButtonDisabled = false;
+
+            await InvokeAsync(StateHasChanged);
         }
 
-        private async Task<List<PathNode>> UpdateSourceAsync(string url, string localPath)
+        private static NamePath UpdateSourceOperation(PathNode node, NamePath namePath)
         {
-            var nodes = await AnalyzeUrlAsync(url);
-
-            if (nodes == null) return new();
-
-            foreach (var node in nodes)
+            if (!node.IsFile)
             {
-                string newPath = Path.Combine(localPath, node.Name);
-                string newUrl = Path.Combine(url, node.Path);
-
-                if (node.IsFile)
+                var namePathCurrent = new NamePath(
+                    Path.Combine(namePath.Name, node.Name),
+                    Path.Combine(namePath.Path, node.Path));
+                
+                try
                 {
+                    var client = new HttpClient();
+                
+                    var response = client.GetStringAsync(namePathCurrent.Path).Result;
                     
-                    CheckNodeUpdate(node, newPath);
+                    node.Children = GetPathNodesFromHtml(response);
 
-                    node.Children = new();
+                    return namePathCurrent;
                 }
-                else
+                catch
                 {
-                    node.Children = await UpdateSourceAsync(newUrl, newPath);
+                    return null;
                 }
             }
 
-            return nodes;
+            CheckUpdateForOneNode(node, Path.Combine(namePath.Name, node.Name));
+
+            return null;
         }
-
-        private async Task<List<PathNode>> AnalyzeUrlAsync(string url)
+        
+        private static List<PathNode> GetPathNodesFromHtml(string html)
         {
-            try
-            {
-                var client = new HttpClient();
+            var start = html.IndexOf("<table", StringComparison.Ordinal);
+            var end = html.IndexOf("</table>", StringComparison.Ordinal) + 8;
 
-                var response = await client.GetStringAsync(url);
+            var xml = html[start..end].Replace('&', ' ');
 
-                var start = response.IndexOf("<table", StringComparison.Ordinal);
-                var end = response.IndexOf("</table>", StringComparison.Ordinal) + 8;
-
-                var origin = response[start..end].Replace('&', ' ');
-
-                return AnalyzePath(origin);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        List<PathNode> AnalyzePath(string xml)
-        {
-            XDocument document = XDocument.Parse(xml);
+            var document = XDocument.Parse(xml);
             if (document.Root is null) return null;
             var elements = document.Root.Elements();
 
             List<PathNode> pathNodes = new();
+            
             foreach (var element in elements.Where(u => u.Name == "tr"))
             {
                 var classAttr = element.Attribute("class");
 
                 if (classAttr is null || classAttr.Value == "indexhead") continue;
 
-                var attrs = new Dictionary<string, XElement>();
-
+                XElement 
+                    indexcollastmod =null,
+                    indexcolsize=null,
+                    indexcolname=null;
+                
                 foreach (var attr in element.Elements().Where(u => u.Name == "td"))
                 {
                     var attribute = attr.Attribute("class");
                     if (attribute is null) continue;
 
-                    attrs[attribute.Value] = attr;
+                    switch (attribute.Value)
+                    {
+                        case "indexcollastmod":
+                            indexcollastmod = attr;
+                            break;
+                        case "indexcolsize":
+                            indexcolsize = attr;
+                            break;
+                        case "indexcolname":
+                            indexcolname = attr;
+                            break;
+                    }
                 }
 
-                if (!attrs.ContainsKey("indexcolname")) continue;
-
-                var a = attrs["indexcolname"].Element("a");
+                var a = indexcolname?.Element("a");
 
                 if (a is null || a.Value == "Parent Directory") continue;
 
-                string name = a.Value.Trim();
+                var path = a.Attribute("href")?.Value.Trim();
+                var name = a.Value.Trim();
+                
                 if (name.EndsWith('/'))
                     name = name[..^1];
                 
-                var pathNode = new PathNode
+                if (path is null || name is null) continue;
+                
+                pathNodes.Add(new ()
                 {
-                    Path = a.Attribute("href")?.Value.Trim(),
-                    Name = name
-                };
-
-                if (pathNode.Path != null)
-                    pathNode.IsFile = !pathNode.Path.EndsWith("/");
-
-                if (attrs.TryGetValue("indexcollastmod", out XElement indexcollastmod))
-                    _ = DateTime.TryParse(indexcollastmod.Value, out pathNode.UpdateTime);
-
-                if (attrs.TryGetValue("indexcolsize", out XElement indexcolsize))
-                    _ = double.TryParse(indexcolsize.Value[..^1], out pathNode.Size);
-                pathNodes.Add(pathNode);
+                    Path = path,
+                    Name = name,
+                    IsFile = !path.EndsWith("/"),
+                    UpdateTime = 
+                        DateTime.TryParse(indexcollastmod?.Value, out var updateTime) 
+                        ? updateTime:DateTime.MinValue ,
+                    Size = 
+                        double.TryParse(indexcolsize?.Value[..^1], out var size)?
+                        size:0.0
+                });
             }
 
             return pathNodes;

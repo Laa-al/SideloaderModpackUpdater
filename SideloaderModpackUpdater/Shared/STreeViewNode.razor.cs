@@ -9,7 +9,8 @@ namespace SideloaderModpackUpdater.Shared
 
         [Parameter] public STreeView<TItem> STreeView { get; set; }
 
-
+        [Parameter] public int Layer { get; set; }
+        
         void Expended(TItem item)
         {
             STreeView.ExpendAction(item);

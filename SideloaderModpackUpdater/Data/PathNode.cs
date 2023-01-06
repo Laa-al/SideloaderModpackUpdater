@@ -13,7 +13,7 @@ namespace SideloaderModpackUpdater.Data
         public DateTime UpdateTime;
 
         public double Size;
-
+        
         public bool IsFile;
 
         public bool ShouldUpdate;

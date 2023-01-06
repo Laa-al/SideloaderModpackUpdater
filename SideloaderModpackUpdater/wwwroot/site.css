@@ -1,13 +1,28 @@
-﻿.node{
-    display: inline;
+﻿.usn {
     user-select: none;
 }
 
-.my-hover:hover{
+.di {
+    display: inline-block;
+}
+
+.expend{
+    width:20px;
+}
+
+.mg-10 {
+    margin: 10px;
+}
+
+.my-hover:hover {
     box-shadow: 0 0 3px 3px black;
 }
 
+.container {
+    display: flex;
+    flex-direction: row;
+}
 
-.item{
-    margin: 5px;
+.remain {
+    flex-grow: 1;
 }

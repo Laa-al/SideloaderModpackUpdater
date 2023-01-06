@@ -1,20 +1,33 @@
 ﻿@typeparam TItem
 
-@foreach (var item in Items)
+@if (Items is not null && Items.Any())
 {
-    <div class="item" style="padding-left:8px" >
-        <input class="node" type="checkbox" checked="@(STreeView.Selected(item))" 
-                       onchange="@(() => STreeView.SelectAction(item))"/>
-        <div class="node" onclick="@(()=>Expended(item))">
+    foreach (var item in Items)
+    {
+        var children = STreeView.Children(item);
+        <div class="mg-10" style="padding-left: @(Layer * 15)px">
+            @if (children is not null && children.Any())
+            {
+                <div class="di my-hover expend"
+                    onclick="@(() => Expended(item))">
+                    @(STreeView.Expended(item) ? "↓" : "→")
+                </div>
+            }
+            else
+            {
+                <div class="di expend"> </div>
+            }
+            <input type="checkbox" checked="@(STreeView.Selected(item))"
+                   onchange="@(() => STreeView.SelectAction(item))"/>
             @STreeView.Content(item)
         </div>
-            
+                
         @if (STreeView.Expended(item))
         {
-            <STreeViewNode Items="@STreeView.Children(item)" STreeView="@STreeView" />
+            <STreeViewNode Items="@children" STreeView="@STreeView" Layer="@(Layer+1)"/>
         }
-    </div>
+    }
 }
 
 
-      
+          

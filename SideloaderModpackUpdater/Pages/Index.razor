@@ -1,38 +1,37 @@
 ﻿@page "/"
 
-源:<input @bind-value="_originUrl" style="width:100%" />
+<div class="container">
+    <b class="mg-10"> 源:</b><input class="remain" @bind-value="_input.Path"/>
+</div>
+<div class="container">
+    <b class="mg-10">本地路径:</b><input class="remain" @bind-value="_input.Name"/>
+</div>
+<button class="mg-10" @onclick="UpdateSourceAsync" disabled="@_updateButtonDisabled">更新源</button>
+<button class="mg-10" @onclick="Download" disabled="@DownloadButtonDisabled">下载</button>
+<button class="mg-10" @onclick="SaveConfigAsync">保存列表</button>
+<button class="mg-10" @onclick="ApplyInput">切换目录</button>
+<button class="mg-10" @onclick="CheckUpdateByConfig">检查更新</button>
+<button class="mg-10" @onclick="ExpendAllNode">展开所有</button>
+<button class="mg-10" @onclick="SelectedWitchNeedUpdate">选中需更新项目</button>
 
-本地路径:<input @bind-value="_localPath" style="width:100%" />
-        
-<button @onclick="StartUpdateSourceAsync" disabled="@_updateButtonDisabled">更新源</button>
-
-<button  @onclick="StartDownloadAsync" disabled="@DownloadButtonDisabled">下载</button>
-
-<button  @onclick="SaveConfigAsync">保存列表</button>
-
-<button  @onclick="UpdatePathOnly">切换目录</button>
-
-<button  @onclick="CheckUpdateOnly">检查更新</button>
-
-
-<button  @onclick="ExpendAll">展开所有</button>
-
-<button  @onclick="SelectedNeedUpdate">选中需更新项目</button>
-
-
-<STreeView Items="_rootNode.Children"
-           Children="r => r.Children"
-           Selected="r => r.RealUpdate"
-           Expended="r => r.Expended"
-           SelectAction="@SelectAction"
-           ExpendAction="r => r.Expended = !r.Expended">
-    <Content>
-        <div class="node my-hover" style="background-color: @(context.IsFile ? "cornsilk" : "aliceblue")">
-            @if (context.ShouldUpdate)
-            {
-                @("✏️")
-            }
-            @context.Name @context.UpdateTime @(context.Size)M
-        </div>
-    </Content>
-</STreeView>
+@if (_rootNode is not null)
+{
+    <div class="usn">
+        <STreeView Items="_rootNode.Children"
+                   Children="r => r.Children"
+                   Selected="r => r.RealUpdate"
+                   Expended="r => r.Expended"
+                   SelectAction="@Select"
+                   ExpendAction="r => r.Expended = !r.Expended">
+            <Content>
+                <div class="di" style="background-color: @(context.IsFile ? "cornsilk" : "aliceblue")">
+                    @if (context.ShouldUpdate)
+                    {
+                        @("✏️")
+                    }
+                    @context.Name @context.UpdateTime @(context.Size)M
+                </div>
+            </Content>
+        </STreeView>
+    </div>
+}
