@@ -1,27 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SideloaderModpackUpdater.Data
-{  
-    [Serializable]
-    public class PathNode
-    {
-        public string Path;
+namespace SideloaderModpackUpdater.Data;
 
-        public string Name;
+public class PathNode
+{
+    public List<PathNode> Children;
 
-        public DateTime UpdateTime;
+    public bool Expended;
 
-        public double Size;
-        
-        public bool IsFile;
+    public bool IsFile;
 
-        public bool ShouldUpdate;
+    public string Name;
+    public string Path;
 
-        public bool RealUpdate;
-        
-        public bool Expended;
-        
-        public List<PathNode> Children;
-    }
+    public bool RealUpdate;
+
+    public bool ShouldUpdate;
+
+    public double Size;
+
+    public DateTime UpdateTime;
 }

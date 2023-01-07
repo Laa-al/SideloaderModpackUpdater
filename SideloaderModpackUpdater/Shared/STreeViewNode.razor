@@ -9,7 +9,7 @@
             @if (children is not null && children.Any())
             {
                 <div class="di my-hover expend"
-                    onclick="@(() => Expended(item))">
+                     onclick="@(() => Expended(item))">
                     @(STreeView.Expended(item) ? "↓" : "→")
                 </div>
             }
@@ -21,13 +21,10 @@
                    onchange="@(() => STreeView.SelectAction(item))"/>
             @STreeView.Content(item)
         </div>
-                
+
         @if (STreeView.Expended(item))
         {
-            <STreeViewNode Items="@children" STreeView="@STreeView" Layer="@(Layer+1)"/>
+            <STreeViewNode Items="@children" STreeView="@STreeView" Layer="@(Layer + 1)"/>
         }
     }
 }
-
-
-          

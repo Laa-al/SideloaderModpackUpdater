@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SideloaderModpackUpdater.Data;
 
@@ -12,44 +11,22 @@ public class DownloadManager
 {
     private static readonly List<DownloadManager> DownloadManagers = new()
     {
-        new(),
-        new(),
-        new(),
-        new(),
-        new(),
-        new(),
-        new(),
-        new(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager(),
+        new DownloadManager()
     };
 
-    public static bool Unoccupied => DownloadManagers.All(u => u._unoccupied);
-    
-    public static void AutoAddTask(DownloadTask task)
-    {
-        int minPos = 0;
-        int minValue = int.MaxValue;
+    private readonly LinkedList<DownloadTask> _tasks = new();
 
-        for (int i = 0; i < DownloadManagers.Count; i++)
-        {
-            if (minValue > DownloadManagers[i]._tasks.Count)
-            {
-                minValue = DownloadManagers[i]._tasks.Count;
-                minPos = i;
-            }
-        }
-        
-        DownloadManagers[minPos].AddTask(task);
-    }
+    private bool _threadIsRun;
 
-    public static void ClearAllThread()
-    {
-        foreach (var downloadManager in DownloadManagers)
-        {
-            downloadManager._threadIsRun = false;
-        }
-        DownloadManagers.Clear();
-    }
-    
+    private bool _unoccupied = true;
+
     private DownloadManager()
     {
         Thread downloadThread = new(RunAsync);
@@ -57,17 +34,34 @@ public class DownloadManager
         downloadThread.Start();
     }
 
-    private bool _unoccupied = true;
-    
-    private readonly LinkedList<DownloadTask> _tasks = new();
+    public static bool Unoccupied => DownloadManagers.All(u => u._unoccupied);
 
-    private bool _threadIsRun;
-    
+    public static void AutoAddTask(DownloadTask task)
+    {
+        var minPos = 0;
+        var minValue = int.MaxValue;
+
+        for (var i = 0; i < DownloadManagers.Count; i++)
+            if (minValue > DownloadManagers[i]._tasks.Count)
+            {
+                minValue = DownloadManagers[i]._tasks.Count;
+                minPos = i;
+            }
+
+        DownloadManagers[minPos].AddTask(task);
+    }
+
+    public static void ClearAllThread()
+    {
+        foreach (var downloadManager in DownloadManagers) downloadManager._threadIsRun = false;
+        DownloadManagers.Clear();
+    }
+
     private void AddTask(DownloadTask task)
     {
         _tasks.AddLast(task);
     }
-    
+
     private async void RunAsync()
     {
         while (_threadIsRun)
@@ -82,13 +76,13 @@ public class DownloadManager
 
                     if (!Directory.Exists(task.Path))
                         Directory.CreateDirectory(task.Path);
-                    
+
                     var client = new HttpClient();
 
                     var response = await client.GetStreamAsync(task.Url);
 
-                    await using var fs = File.Open(Path.Combine(task.Path,task.Name) , FileMode.Create);
-                    
+                    await using var fs = File.Open(Path.Combine(task.Path, task.Name), FileMode.Create);
+
                     await response.CopyToAsync(fs);
 
                     Console.WriteLine($"\r\n Finish download {task.Name}");
