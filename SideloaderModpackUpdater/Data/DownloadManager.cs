@@ -86,7 +86,7 @@ public class DownloadManager
                     if (!Directory.Exists(CurrentTask.Path))
                         Directory.CreateDirectory(CurrentTask.Path);
 
-                    SimpleLogger.LogInfo($"\r\n Start download {CurrentTask.Name}");
+                    SimpleLogger.LogInfo($"Start download {CurrentTask.Name}");
                     AfterFinishDownload?.Invoke(this);
 
                     var response = await _client.GetStreamAsync(CurrentTask.Url);
@@ -95,10 +95,14 @@ public class DownloadManager
 
                     await response.CopyToAsync(fs);
 
-                    SimpleLogger.LogInfo($"\r\n Finish download {CurrentTask.Name}");
+                    SimpleLogger.LogInfo($"Finish download {CurrentTask.Name}");
                 }
                 catch
                 {
+                    var path = Path.Combine(CurrentTask.Path, CurrentTask.Name);
+                    if (File.Exists(path))
+                        File.Delete(path);
+                    
                     SimpleLogger.LogError($"\r\n {CurrentTask.Name} download failed!");
                 }
             }
