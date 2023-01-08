@@ -9,7 +9,9 @@ namespace SideloaderModpackUpdater.Data;
 
 public class DownloadManager
 {
-    private static readonly List<DownloadManager> DownloadManagers = new()
+    public static event Action<DownloadManager> AfterFinishDownload;
+    
+    public static readonly List<DownloadManager> DownloadManagers = new()
     {
         new DownloadManager(),
         new DownloadManager(),
@@ -52,6 +54,8 @@ public class DownloadManager
     private bool _unoccupied = true;
 
     private readonly HttpClient _client = new();
+
+    public DownloadTask CurrentTask { get; private set; }
     
     private DownloadManager()
     {
@@ -70,24 +74,28 @@ public class DownloadManager
     {
         while (_threadIsRun)
         {
-            var task = _tasks.First?.Value;
-            if (task is not null)
+            CurrentTask = _tasks.First?.Value;
+            if (CurrentTask is not null)
             {
-                _unoccupied = false;
                 try
                 {
+                    _unoccupied = false;
+                    
                     _tasks.RemoveFirst();
 
-                    if (!Directory.Exists(task.Path))
-                        Directory.CreateDirectory(task.Path);
+                    if (!Directory.Exists(CurrentTask.Path))
+                        Directory.CreateDirectory(CurrentTask.Path);
 
-                    var response = await _client.GetStreamAsync(task.Url);
+                    AfterFinishDownload?.Invoke(this);
 
-                    await using var fs = File.Open(Path.Combine(task.Path, task.Name), FileMode.Create);
+                    var response = await _client.GetStreamAsync(CurrentTask.Url);
+
+                    await using var fs = File.Open(Path.Combine(CurrentTask.Path, CurrentTask.Name), FileMode.Create);
 
                     await response.CopyToAsync(fs);
 
-                    Console.WriteLine($"\r\n Finish download {task.Name}");
+                    Console.WriteLine($"\r\n Finish download {CurrentTask.Name}");
+                    
                 }
                 catch
                 {
@@ -96,7 +104,11 @@ public class DownloadManager
             }
             else
             {
-                _unoccupied = true;
+                if (!_unoccupied)
+                {
+                    AfterFinishDownload?.Invoke(this);
+                    _unoccupied = true;
+                }
                 Thread.Sleep(1000);
             }
         }

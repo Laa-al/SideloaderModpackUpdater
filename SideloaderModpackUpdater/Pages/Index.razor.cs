@@ -10,7 +10,7 @@ using SideloaderModpackUpdater.Data;
 
 namespace SideloaderModpackUpdater.Pages;
 
-public partial class Index
+public partial class Index:IDisposable
 {
     private bool _downloadButtonDisabled;
     private NamePath _input = new("", "");
@@ -33,6 +33,8 @@ public partial class Index
 
             _input = new NamePath(_rootNode.Name, _rootNode.Path);
         }
+
+        DownloadManager.AfterFinishDownload += Trigger;
     }
 
     private static void OperateNodeAndItChildren<TParameter>(
@@ -305,5 +307,15 @@ public partial class Index
         }
 
         return pathNodes;
+    }
+
+    private async void Trigger(DownloadManager manager)
+    {
+        await InvokeAsync( StateHasChanged);
+    }
+    
+    public void Dispose()
+    {
+        DownloadManager.AfterFinishDownload -= Trigger;
     }
 }

@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using SideloaderModpackUpdater.Data
 
 <div class="container">
     <b class="mg-10"> 源:</b><input class="remain" @bind-value="_input.Path"/>
@@ -13,6 +14,16 @@
 <button class="mg-10" @onclick="CheckUpdateByConfig">检查更新</button>
 <button class="mg-10" @onclick="ExpendAllNode">展开所有</button>
 <button class="mg-10" @onclick="SelectedWitchNeedUpdate">选中需更新项目</button>
+
+<div>
+    @foreach (var manager in DownloadManager.DownloadManagers)
+    {
+        <div>
+            @(manager.CurrentTask?.Name?? "没有任务") 正在下载
+        </div>
+    }
+</div>
+
 
 @if (_rootNode is not null)
 {
