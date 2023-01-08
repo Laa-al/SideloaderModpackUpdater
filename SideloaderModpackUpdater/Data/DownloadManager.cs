@@ -21,19 +21,6 @@ public class DownloadManager
         new DownloadManager()
     };
 
-    private readonly LinkedList<DownloadTask> _tasks = new();
-
-    private bool _threadIsRun;
-
-    private bool _unoccupied = true;
-
-    private DownloadManager()
-    {
-        Thread downloadThread = new(RunAsync);
-        _threadIsRun = true;
-        downloadThread.Start();
-    }
-
     public static bool Unoccupied => DownloadManagers.All(u => u._unoccupied);
 
     public static void AutoAddTask(DownloadTask task)
@@ -56,7 +43,24 @@ public class DownloadManager
         foreach (var downloadManager in DownloadManagers) downloadManager._threadIsRun = false;
         DownloadManagers.Clear();
     }
+   
 
+    private readonly LinkedList<DownloadTask> _tasks = new();
+
+    private bool _threadIsRun;
+
+    private bool _unoccupied = true;
+
+    private readonly HttpClient _client = new();
+    
+    private DownloadManager()
+    {
+        Thread downloadThread = new(RunAsync);
+        _threadIsRun = true;
+        downloadThread.Start();
+    }
+    
+    
     private void AddTask(DownloadTask task)
     {
         _tasks.AddLast(task);
@@ -77,9 +81,7 @@ public class DownloadManager
                     if (!Directory.Exists(task.Path))
                         Directory.CreateDirectory(task.Path);
 
-                    var client = new HttpClient();
-
-                    var response = await client.GetStreamAsync(task.Url);
+                    var response = await _client.GetStreamAsync(task.Url);
 
                     await using var fs = File.Open(Path.Combine(task.Path, task.Name), FileMode.Create);
 
