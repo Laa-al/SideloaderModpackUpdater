@@ -242,7 +242,7 @@ public partial class Index:IDisposable
         var start = html.IndexOf("<table", StringComparison.Ordinal);
         var end = html.IndexOf("</table>", StringComparison.Ordinal) + 8;
 
-        var xml = html[start..end].Replace('&', ' ');
+        var xml = html[start..end].Replace("&nbsp;", "");
 
         var document = XDocument.Parse(xml);
         if (document.Root is null) return null;
